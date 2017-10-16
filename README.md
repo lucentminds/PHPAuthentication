@@ -1,7 +1,5 @@
-[![Stories in Ready](https://badge.waffle.io/PHPAuth/PHPAuth.png?label=ready&title=Ready)](https://waffle.io/PHPAuth/PHPAuth)
 [![Build Status](https://api.travis-ci.org/PHPAuth/PHPAuth.png)](https://api.travis-ci.org/PHPAuth/PHPAuth) 
 [![ghit.me](https://ghit.me/badge.svg?repo=phpauth/phpauth)](https://ghit.me/repo/phpauth/phpauth)
-[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%205.4-8892BF.svg?style=flat-circle)](https://php.net/)
 
 PHPAuth
 =======
@@ -10,10 +8,6 @@ What is it
 ---------------
 
 PHPAuth is a secure user authentication class for PHP websites, using a powerful password hashing system and attack blocking to keep your website and users secure.
-
-PHPAuth is work in progress, and not meant for people that doesn't know how to program, its meant for people that know what they are doing.. We cannot help everyone because they dont understand this class.. 
-
-IT'S NOT FOR BEGINNERS!
 
 Features
 ---------------
@@ -81,12 +75,14 @@ The database table `config` contains multiple parameters allowing you to configu
 * `smtp_port` : the port for the SMTP server
 * `smtp_security` : `NULL` for no encryption, `tls` for TLS encryption, `ssl` for SSL encryption
 * `verify_password_min_length` : minimum password length, default is `3`  
+* `verify_password_max_length` : maximum password length, default is `150`
+* `verify_password_strong_requirements` : use strong password requirments (at least one uppercase and lowercase character, and at least one digit), default is `1` (`true`)
 * `verify_email_min_length` : minimum EMail length, default is `5`
 * `verify_email_max_length` : maximum EMail length, default is `100`
 * `verify_email_use_banlist` : use banlist while checking allowed EMails (see `/files/domains.json`), default is `1` (`true`)
 * `attack_mitigation_time` : time used for rolling attempts timeout, default is `+30 minutes`. Must respect PHP's [strtotime](http://php.net/manual/en/function.strtotime.php) format.
 * `attempts_before_verify` : maximum amount of attempts to be made within `attack_mitigation_time` before requiring captcha. Default is `5`
-* `attempt_before_ban` : maximum amount of attempts to be made within `attack_mitigation_time` before temporally blocking the IP address. Default is `30`
+* `attempt_before_block` : maximum amount of attempts to be made within `attack_mitigation_time` before temporally blocking the IP address. Default is `30`
 * `password_min_score` : the minimum score given by [zxcvbn](https://github.com/bjeavons/zxcvbn-php) that is allowed. Default is `3`
 
 The rest of the parameters generally do not need changing.
@@ -107,7 +103,7 @@ For example, if you are using Google's ReCaptcha NoCaptcha, use the following co
         $url = 'https://www.google.com/recaptcha/api/siteverify';
         $data = ['secret'   => 'your_secret_here',
             'response' => $captcha,
-            'remoteip' => $this->getIp()];
+            'remoteip' => $_SERVER['REMOTE_ADDR']];
 
         $options = [
             'http' => [
@@ -166,30 +162,17 @@ Example: `$auth   = new PHPAuth\Auth($dbh, $config, "fr_FR");`
 
 Available languages:
 
-* `ar-TN`
-* `cs_CZ`
+* `en_GB` (Default)
 * `da_DK`
 * `de_DE`
-* `en_GB` (Default)
-* `es_MX`
 * `fa_IR`
 * `fr_FR`
-* `gr_GR`
-* `hu_HU`
-* `id_ID`
 * `it_IT`
 * `nl_BE`
 * `nl_NL`
-* `no_NB`
-* `pl_PL`
-* `ps_AF`
 * `pt_BR`
 * `ru_RU`
 * `se_SE`
-* `sr_RS`
-* `th_TH`
-* `uk_UA`
-* `vi_VN`
 
 Documentation
 ---------------

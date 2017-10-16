@@ -3,7 +3,7 @@
 namespace PHPAuth;
 
 use ZxcvbnPhp\Zxcvbn;
-use PHPMailer;
+use PHPMailer\PHPMailer\PHPMailer;
 
 /**
  * Auth class
@@ -15,8 +15,6 @@ class Auth
     protected $dbh;
     public $config;
     public $lang;
-    protected $islogged = NULL;
-    protected $currentuser = NULL;
 
     /**
      * Initiates database connection
@@ -125,9 +123,7 @@ class Auth
         $return['message'] = $this->lang["logged_in"];
 
         $return['hash'] = $sessiondata['hash'];
-        $return['expire'] = $sessiondata['expire'];
-		
-		$return['cookie_name'] = $this->config->cookie_name;
+        $return['expire'] = $sessiondata['expiretime'];
 
         return $return;
     }
@@ -294,7 +290,7 @@ class Auth
         $query = $this->dbh->prepare("SELECT id FROM {$this->config->table_users} WHERE email = ?");
         $query->execute(array($email));
 
-		if (!$row = $query->fetch(\PDO::FETCH_ASSOC)) {
+        if ($query->rowCount() == 0) {
             $this->addAttempt();
 
             $return['message'] = $this->lang["email_incorrect"];
@@ -302,7 +298,7 @@ class Auth
             return $return;
         }
 
-        $addRequest = $this->addRequest($row['id'], $email, "reset", $sendmail);
+        $addRequest = $this->addRequest($query->fetch(\PDO::FETCH_ASSOC)['id'], $email, "reset", $sendmail);
 
         if ($addRequest['error'] == 1) {
             $this->addAttempt();
@@ -356,11 +352,11 @@ class Auth
         $query = $this->dbh->prepare("SELECT id FROM {$this->config->table_users} WHERE email = ?");
         $query->execute(array($email));
 
-        if(!$row = $query->fetch(\PDO::FETCH_ASSOC)) {
+        if ($query->rowCount() == 0) {
             return false;
         }
 
-        return $row['id'];
+        return $query->fetch(\PDO::FETCH_ASSOC)['id'];
     }
 
     /**
@@ -380,26 +376,27 @@ class Auth
         }
 
         $data['hash'] = sha1($this->config->site_key . microtime());
-        $agent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
+        $agent = $_SERVER['HTTP_USER_AGENT'];
 
         $this->deleteExistingSessions($uid);
 
         if ($remember == true) {
-            $data['expire'] = strtotime($this->config->cookie_remember);
+            $data['expire'] = date("Y-m-d H:i:s", strtotime($this->config->cookie_remember));
+            $data['expiretime'] = strtotime($data['expire']);
         } else {
-            $data['expire'] = strtotime($this->config->cookie_forget);
+            $data['expire'] = date("Y-m-d H:i:s", strtotime($this->config->cookie_forget));
+            $data['expiretime'] = 0;
         }
 
         $data['cookie_crc'] = sha1($data['hash'] . $this->config->site_key);
 
         $query = $this->dbh->prepare("INSERT INTO {$this->config->table_sessions} (uid, hash, expiredate, ip, agent, cookie_crc) VALUES (?, ?, ?, ?, ?, ?)");
 
-        if (!$query->execute(array($uid, $data['hash'], date("Y-m-d H:i:s", $data['expire']), $ip, $agent, $data['cookie_crc']))) {
+        if (!$query->execute(array($uid, $data['hash'], $data['expire'], $ip, $agent, $data['cookie_crc']))) {
             return false;
         }
 
-        setcookie($this->config->cookie_name, $data['hash'], $data['expire'], $this->config->cookie_path, $this->config->cookie_domain, $this->config->cookie_secure, $this->config->cookie_http);
-        $_COOKIE[$this->config->cookie_name] = $data['hash'];
+        $data['expire'] = strtotime($data['expire']);
 
         return $data;
     }
@@ -455,10 +452,11 @@ class Auth
         $query = $this->dbh->prepare("SELECT id, uid, expiredate, ip, agent, cookie_crc FROM {$this->config->table_sessions} WHERE hash = ?");
         $query->execute(array($hash));
 
-		if (!$row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			return false;
-		}
+        if ($query->rowCount() == 0) {
+            return false;
+        }
 
+        $row = $query->fetch(\PDO::FETCH_ASSOC);
         $sid = $row['id'];
         $uid = $row['uid'];
         $expiredate = strtotime($row['expiredate']);
@@ -494,12 +492,12 @@ class Auth
     {
         $query = $this->dbh->prepare("SELECT uid FROM {$this->config->table_sessions} WHERE hash = ?");
         $query->execute(array($hash));
-		
-		if (!$row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			return false;
-		}
 
-		return $row['uid'];
+        if ($query->rowCount() == 0) {
+            return false;
+        }
+
+        return $query->fetch(\PDO::FETCH_ASSOC)['uid'];
     }
 
     /**
@@ -525,7 +523,6 @@ class Auth
     * @param string $email      -- email
     * @param string $password   -- password
     * @param array $params      -- additional params
-    * @param boolean $sendmail  -- activate email confirm or not
     * @return int $uid
     */
 
@@ -533,14 +530,14 @@ class Auth
     {
         $return['error'] = true;
 
-        $query = $this->dbh->prepare("INSERT INTO {$this->config->table_users} (isactive) VALUES (0)");
+        $query = $this->dbh->prepare("INSERT INTO {$this->config->table_users} VALUES ()");
 
         if (!$query->execute()) {
             $return['message'] = $this->lang["system_error"] . " #03";
             return $return;
         }
 
-        $uid = $this->dbh->lastInsertId("{$this->config->table_users}_id_seq");
+        $uid = $this->dbh->lastInsertId();
         $email = htmlentities(strtolower($email));
 
         if ($sendmail) {
@@ -600,6 +597,10 @@ class Auth
         $query = $this->dbh->prepare("SELECT email, password, isactive FROM {$this->config->table_users} WHERE id = ?");
         $query->execute(array($uid));
 
+        if ($query->rowCount() == 0) {
+            return false;
+        }
+
         $data = $query->fetch(\PDO::FETCH_ASSOC);
 
         if (!$data) {
@@ -622,6 +623,10 @@ class Auth
         $query = $this->dbh->prepare("SELECT * FROM {$this->config->table_users} WHERE id = ?");
         $query->execute(array($uid));
 
+        if ($query->rowCount() == 0) {
+            return false;
+        }
+
         $data = $query->fetch(\PDO::FETCH_ASSOC);
 
         if (!$data) {
@@ -633,7 +638,6 @@ class Auth
 
         return $data;
     }
-
 
     /**
     * Allows a user to delete their account
@@ -715,7 +719,7 @@ class Auth
     * @param int $uid
     * @param string $email
     * @param string $type
-    * @param boolean $sendmail
+    * @param boolean $sendmail = NULL
     * @return boolean
     */
 
@@ -750,7 +754,8 @@ class Auth
         $query = $this->dbh->prepare("SELECT id, expire FROM {$this->config->table_requests} WHERE uid = ? AND type = ?");
         $query->execute(array($uid, $type));
 
-        if ($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+        if ($query->rowCount() > 0) {
+            $row = $query->fetch(\PDO::FETCH_ASSOC);
 
             $expiredate = strtotime($row['expire']);
             $currentdate = strtotime(date("Y-m-d H:i:s"));
@@ -851,12 +856,14 @@ class Auth
         $query = $this->dbh->prepare("SELECT id, uid, expire FROM {$this->config->table_requests} WHERE rkey = ? AND type = ?");
         $query->execute(array($key, $type));
 
-        if (!$row = $query->fetch(\PDO::FETCH_ASSOC)) {
+        if ($query->rowCount() === 0) {
             $this->addAttempt();
             $return['message'] = $this->lang[$type."key_incorrect"];
 
             return $return;
         }
+
+        $row = $query->fetch();
 
         $expiredate = strtotime($row['expire']);
         $currentdate = strtotime(date("Y-m-d H:i:s"));
@@ -989,14 +996,6 @@ class Auth
             return $return;
         }
 
-        $zxcvbn = new Zxcvbn();
-	
-        if ($zxcvbn->passwordStrength($password)['score'] < intval($this->config->password_min_score)) {
-            $return['message'] = $this->lang['password_weak'];
-
-            return $return;
-        }
-        
         if ($password !== $repeatpassword) {
             // Passwords don't match
             $return['message'] = $this->lang["newpassword_nomatch"];
@@ -1004,14 +1003,6 @@ class Auth
             return $return;
         }
 
-        $zxcvbn = new Zxcvbn();
-
-        if ($zxcvbn->passwordStrength($password)['score'] < intval($this->config->password_min_score)) {
-            $return['message'] = $this->lang['password_weak'];
-
-            return $return;
-        }
-	    
         $data = $this->getRequest($key, "reset");
 
         if ($data['error'] == 1) {
@@ -1088,12 +1079,14 @@ class Auth
         $query = $this->dbh->prepare("SELECT id FROM {$this->config->table_users} WHERE email = ?");
         $query->execute(array($email));
 
-		if(!$row = $query->fetch(\PDO::FETCH_ASSOC)) {
+        if ($query->rowCount() == 0) {
             $this->addAttempt();
             $return['message'] = $this->lang["email_incorrect"];
 
             return $return;
         }
+
+        $row = $query->fetch(\PDO::FETCH_ASSOC);
 
         if ($this->getBaseUser($row['id'])['isactive'] == 1) {
             $this->addAttempt();
@@ -1231,13 +1224,6 @@ class Auth
 
         if ($validateEmail['error'] == 1) {
             $return['message'] = $validateEmail['message'];
-
-            return $return;
-        }
-
-        if ($this->isEmailTaken($email)) {
-            $this->addAttempt();
-            $return['message'] = $this->lang["email_taken"];
 
             return $return;
         }
@@ -1383,9 +1369,9 @@ class Auth
     }
 
     /**
-     * Returns IP address
-     * @return string $ip
-     */
+    * Returns IP address
+    * @return string $ip
+    */
     protected function getIp()
     {
         if (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && $_SERVER['HTTP_X_FORWARDED_FOR'] != '') {
@@ -1396,47 +1382,19 @@ class Auth
     }
 
     /**
+    * Returns is user logged in
+    * @return boolean
+    */
+    public function isLogged() {
+        return (isset($_COOKIE[$this->config->cookie_name]) && $this->checkSession($_COOKIE[$this->config->cookie_name]));
+    }
+
+    /**
      * Returns current session hash
      * @return string
-     * @return boolean false if no cookie
      */
     public function getSessionHash(){
-        return isset($_COOKIE[$this->config->cookie_name]) ? $_COOKIE[$this->config->cookie_name] : false;
-    }
-
-    /**
-     * Returns is user logged in
-     * @return boolean
-     */
-    public function isLogged() {
-        if ($this->islogged === NULL) {
-            $this->islogged = $this->checkSession($this->getSessionHash());
-        }
-        return $this->islogged;
-    }
-
-    /**
-    * Gets user data for current user (from cookie) and returns an array, password is not returned
-    * @return array $data
-    * @return boolean false if no current user
-    */
-
-    public function getCurrentUser()
-    {
-        if ($this->currentuser === NULL) {
-            $hash = $this->getSessionHash();
-            if ($hash === false) {
-                return false;
-            }
-
-            $uid = $this->getSessionUID($hash);
-            if ($uid === false) {
-                return false;
-            }
-
-            $this->currentuser = $this->getUser($uid);
-        }
-        return $this->currentuser;
+        return $_COOKIE[$this->config->cookie_name];
     }
 
     /**
@@ -1449,6 +1407,10 @@ class Auth
     {
         $query = $this->dbh->prepare("SELECT password FROM {$this->config->table_users} WHERE id = ?");
         $query->execute(array($userid));
+
+        if ($query->rowCount() == 0) {
+            return false;
+        }
 
         $data = $query->fetch(\PDO::FETCH_ASSOC);
 

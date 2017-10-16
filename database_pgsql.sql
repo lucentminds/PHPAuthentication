@@ -1,10 +1,8 @@
 DROP TABLE IF EXISTS config;
 CREATE TABLE config (
-  id serial NOT NULL,
   setting character varying(100) NOT NULL,
   value character varying(100) DEFAULT NULL,
-  PRIMARY KEY (id),
-  UNIQUE (setting)
+  UNIQUE KEY setting (setting)
 );
 
 INSERT INTO config (setting, value) VALUES
