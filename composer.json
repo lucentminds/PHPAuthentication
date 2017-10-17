@@ -1,6 +1,6 @@
 {
-	"name": "lucentminds/phpauth",
-	"description": "A secure user authentication class for PHP websites, using a powerful password hashing system and attack blocking to keep your website and users secure.",
+	"name": "lucentminds/phpauthentication",
+	"description": "A user authentication class for PHP websites.",
 	"type": "library",
 	"keywords": ["authentication","class","secure"],
 	"homepage": "http://phpauth.github.io/PHPAuth/",
@@ -12,7 +12,7 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"PHPAuth\\": "/"
+			"PHPAuthentication\\": "/"
 		}
 	}
 }
