@@ -15,8 +15,8 @@ class AuthTest extends PHPUnit_Framework_TestCase
         require_once __DIR__ . '/../Config.php';
 
         $this->dbh = new PDO("mysql:host=127.0.0.1;dbname=phpauthtest", "root", "");
-        $this->config = new PHPAuth\Config($this->dbh);
-        $this->auth   = new PHPAuth\Auth($this->dbh, $this->config);
+        $this->config = new PHPAuthentication\Config($this->dbh);
+        $this->auth   = new PHPAuthentication\Auth($this->dbh, $this->config);
 
         // Clean up the database
         $this->dbh->exec("DELETE FROM attempts;");

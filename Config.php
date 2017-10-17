@@ -1,8 +1,8 @@
 <?php
-namespace PHPAuth;
+namespace PHPAuthentication;
 
 /**
- * PHPAuth Config class
+ * PHPAuthentication Config class
  */
 class Config
 {

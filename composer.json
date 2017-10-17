@@ -3,7 +3,7 @@
 	"description": "A user authentication class for PHP websites.",
 	"type": "library",
 	"keywords": ["authentication","class","secure"],
-	"homepage": "http://phpauth.github.io/PHPAuth/",
+	"homepage": "https://github.com/lucentminds/PHPAuthentication",
 	"license": "MIT",
 	"require": {
 		"php": ">=5.4.0",
